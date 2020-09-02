@@ -400,19 +400,16 @@ public class UserServiceImpl implements UserService {
         String email = authentication.getName();
         
         UserEntity user = userRepository.findByEmail(email);
-        if (user.getEmail().equals("azka.khairul09@gmail.com")) 
-        {
-			product.setMerchantId(user.getMerchantId());
-		} 
-        else if (user.getEmail().equals("azka.khairul01@gmail.com"))
-        {
-			product.setMerchantId(user.getMerchantId());
-		}
         
         UserEntity userRole = userRepository.findRoleByUserId(user.getUserId());
         
         String role = userRole.getRole().getRoleName();
         if (!role.equals("Administrator")) throw new UserServiceException ("access denied!, " +role+ " not allowed");
+        
+        if (role.equals("Administrator")) 
+        {
+			product.setMerchantId(user.getMerchantId());
+		} 
         
 //      save createdBy
         product.setCreatedBy(authentication.getName());      
