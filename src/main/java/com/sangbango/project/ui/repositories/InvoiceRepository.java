@@ -15,6 +15,7 @@ public interface InvoiceRepository extends PagingAndSortingRepository<InvoiceEnt
 	List<InvoiceEntity> findByInvoiceDate(String invoiceDate);
 	List<InvoiceEntity> findByCreatedBy(String createdBy);
 	InvoiceEntity findByInvoiceNumber(String invoiceNumber);
+	InvoiceEntity findInvoiceIdByInvoiceNumber(String invoiceNumber);
 	List<InvoiceEntity> findByCreatedDate(String createdDate);
 	List<InvoiceEntity> findByDueTime(String dueTime);
 	Page<InvoiceEntity> findByCreatedByAndStatusOrderByIdDesc(String createdBy, String status, Pageable pageableRequest);

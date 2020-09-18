@@ -242,8 +242,28 @@ public class AppExceptionHandler {
 			ErrorMessage errorMessage = new ErrorMessage(errorCode, ex.getLocalizedMessage(), date);
 			
 			return new ResponseEntity<>(errorMessage, oke);	
+		} 
+		else if (queryString.equals(url+"/transaction/findTransaction")) 
+		{
+			String errorCode = "Err704";
+			HttpStatus oke = HttpStatus.valueOf(200);
+			Date date = Calendar.getInstance().getTime();
+			
+			ErrorMessage errorMessage = new ErrorMessage(errorCode, ex.getLocalizedMessage(), date);
+			
+			return new ResponseEntity<>(errorMessage, oke);	
 		}
-		return null;	
+		else if (queryString.equals(url+"/transaction/addInvoice")) 
+		{
+			String errorCode = "Err705";
+			HttpStatus oke = HttpStatus.valueOf(200);
+			Date date = Calendar.getInstance().getTime();
+			
+			ErrorMessage errorMessage = new ErrorMessage(errorCode, ex.getLocalizedMessage(), date);
+			
+			return new ResponseEntity<>(errorMessage, oke);	
+		}
+		return null;		
 	}
 	
 	@ExceptionHandler(value = {Exception.class})

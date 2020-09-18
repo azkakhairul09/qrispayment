@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -520,6 +521,59 @@ public class UserServiceImpl implements UserService {
 		
 		return returnValue;
 	}
+	
+	@Override
+	public ProductDto disactivated(String productId) {
+		// TODO Auto-generated method stub
+		ModelMapper modelMapper = new ModelMapper();
+		
+//      role checking
+		SecurityContext securityContext = SecurityContextHolder.getContext();
+        Authentication authentication = securityContext.getAuthentication();
+        String email = authentication.getName();
+        
+        UserEntity user = userRepository.findByEmail(email);
+        UserEntity userRole = userRepository.findRoleByUserId(user.getUserId());
+        
+        String role = userRole.getRole().getRoleName();
+        if (!role.equals("Administrator")) throw new UserServiceException ("access denied!, " +role+ " not allowed");
+        
+        ProductEntity product = productRepository.findByProductIdAndIsActiveTrue(productId);
+        if (product == null) throw new UserServiceException("No record found");
+        
+        if (product.getIsActive() == true) {
+        	product.setIsActive(false);
+		}
+        
+        ProductEntity disactivated = productRepository.save(product);
+        ProductDto returnValue = modelMapper.map(disactivated, ProductDto.class);
+		
+		return returnValue;
+	}
+
+	@Override
+	public List<ProductDto> getSomeProducts(int page, int limit) {
+		// TODO Auto-generated method stub
+		List<ProductDto> returnValue = new ArrayList<ProductDto>();
+		
+//		paging
+		if (page>0) page = page-1;
+		Pageable pageableRequest = PageRequest.of(page, limit);
+		
+		Page<ProductEntity> productsPage = productRepository.findByIsActiveTrueOrderByIdDesc(pageableRequest);
+		List<ProductEntity> products = productsPage.getContent();
+		
+		if (products == null) throw new UserServiceException(
+				"no records");
+		
+		for (ProductEntity productEntity : products) {
+			ProductDto productDto = new ProductDto();
+			BeanUtils.copyProperties(productEntity, productDto);
+			returnValue.add(productDto);
+		}
+		
+		return returnValue;
+	}	
 
 	@Override
 	public InvoiceDto createInvoice(String productId) {
@@ -804,6 +858,17 @@ public class UserServiceImpl implements UserService {
 		invoice.setTransactionId(transaction.getTransactionId());
 		invoice.setStatus(paymentNotif.getMessage());
 		invoice.setDescription("payment success");
+		
+		final String FORMAT = "yyyy-MM-dd HH:mm:ss";
+		SimpleDateFormat formatter = new SimpleDateFormat(FORMAT);
+		formatter.setTimeZone(TimeZone.getTimeZone("GMT+7"));
+		 
+		Calendar currentTime = Calendar.getInstance();
+		
+		String modifiedDate = formatter.format(currentTime.getTime());
+		
+		invoice.setModifiedDate(modifiedDate);
+		
 		invoiceRepository.save(invoice);
 		
 		transaction.setQrenTransactionId(paymentNotif.getQrentransid());
@@ -890,6 +955,7 @@ public class UserServiceImpl implements UserService {
         
         InvoiceEntity invoice = transaction.getInvoice();
         invoice.setIsVerified(true);
+        
         final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
 		SimpleDateFormat formatter = new SimpleDateFormat(DATE_FORMAT);
 		formatter.setTimeZone(TimeZone.getTimeZone("GMT+7"));
@@ -907,9 +973,120 @@ public class UserServiceImpl implements UserService {
 	}
 	
 	@Override
-	public ProductDto disactivated(String productId) {
+	public PaymentNotifQrenContainerDto findTransaction(String invoiceNumber) {
 		// TODO Auto-generated method stub
+
+//      role checking
+		SecurityContext securityContext = SecurityContextHolder.getContext();
+        Authentication authentication = securityContext.getAuthentication();
+        String email = authentication.getName();
+        
+        UserEntity user = userRepository.findByEmail(email);
+        UserEntity userRole = userRepository.findRoleByUserId(user.getUserId());
+        
+        String role = userRole.getRole().getRoleName();
+        if (!role.equals("Administrator")) throw new UserServiceException ("access denied!, " +role+ " not allowed");
+		
+//      data execute
+		PaymentNotifQrenContainerDto returnValue = new PaymentNotifQrenContainerDto();
 		ModelMapper modelMapper = new ModelMapper();
+		
+		InvoiceEntity invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+		if (invoice == null) throw new UserServiceException ("no data record");
+		
+		if (invoice.getStatus().equals("pending")) {
+			try {
+//				configure api request			
+				String invoiceId = invoice.getInvoiceId();
+				String charset = "UTF-8";
+				
+				String url = "https://qren-api.tmoney.co.id/paybyqr/checktransactionstatus/";
+				String query = String.format("invoice=%s", 
+		                   URLEncoder.encode(invoiceId, charset));
+				
+//				String json = obj.writeValueAsString(jsonInputString);
+				
+				URL uri = new URL(url + "?" +query);
+				HttpURLConnection connection = (HttpURLConnection) uri.openConnection();
+				
+				connection.setRequestMethod("POST");
+				connection.setRequestProperty("Authorization", 
+						"Basic dG1vbmV5OmZmODY2ZjViNjE1NGJiYjdkOTc4ZTUyNDNiNDkzMjBiMGQxYWQ2N2M=");
+				connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+				connection.setDoInput(true);
+				connection.setDoOutput(true);
+				
+//				if ( connection instanceof HttpURLConnection)
+//	            {
+//	               HttpURLConnection httpConnection = (HttpURLConnection) connection;
+//	               System.out.println(httpConnection.getResponseCode());
+//	               System.out.println(httpConnection.getResponseMessage());
+//	            }
+//	            else
+//	            {
+//	               System.err.println ("error!");
+//	            }
+				
+				InputStream in = new BufferedInputStream(connection.getInputStream());
+				String result = IOUtils.toString(in, "UTF-8");
+				
+				JSONObject qrenResponse = new JSONObject(result);
+				
+				if (qrenResponse.getString("status").equals("PAYMENT_SUCCEED")) {
+					
+//					setting response
+					returnValue.setStatus("0");
+					returnValue.setMessage("success");
+					returnValue = modelMapper.map(returnValue, PaymentNotifQrenContainerDto.class);
+					
+//					save the invoice in container qren
+					PaymentNotifQrenContainer notif = new PaymentNotifQrenContainer();
+					notif.setInvoice(qrenResponse.getString("invoiceKey"));
+					notif.setStatus("0");
+					notif.setAmount(qrenResponse.getString("amount"));
+					notif.setMerchantApiKey(invoice.getProduct().getMerchantId());
+					notif.setTrxId("0");
+					notif.setQrentransid("0");
+					notif.setMessage("success");
+					notif.setTimeStamp(qrenResponse.getString("solvedDate"));
+					
+					paymentNotifQrenContainerRepository.save(notif);
+					
+//					save success invoice in invoice table
+					invoice.setStatus("success");
+					invoice.setDescription("payment success");
+					
+					final String DATE_FORMAT = "yyyy-MM-dd HH:mm:ss";
+					SimpleDateFormat formatter = new SimpleDateFormat(DATE_FORMAT);
+					formatter.setTimeZone(TimeZone.getTimeZone("GMT+7"));
+					 
+					Calendar currentTime = Calendar.getInstance();
+					
+					String modifiedDate = formatter.format(currentTime.getTime());
+					
+					invoice.setModifiedDate(modifiedDate);
+					
+					invoiceRepository.save(invoice);
+				}
+				
+//				close connection
+				in.close();
+				connection.disconnect();
+	        } catch (IOException e) {
+				// TODO: handle exception
+	        	throw new UserServiceException("Cannot get invoice", e);
+			}
+		} else {
+			returnValue.setStatus("1");
+			returnValue.setMessage("There are no invoice created by this merchant");
+		}
+		
+		return returnValue;
+	}
+	
+	@Override
+	public TransactionDto addInvoice(String invoiceNumber) {
+		// TODO Auto-generated method stub
 		
 //      role checking
 		SecurityContext securityContext = SecurityContextHolder.getContext();
@@ -922,43 +1099,75 @@ public class UserServiceImpl implements UserService {
         String role = userRole.getRole().getRoleName();
         if (!role.equals("Administrator")) throw new UserServiceException ("access denied!, " +role+ " not allowed");
         
-        ProductEntity product = productRepository.findByProductIdAndIsActiveTrue(productId);
-        if (product == null) throw new UserServiceException("No record found");
-        
-        if (product.getIsActive() == true) {
-        	product.setIsActive(false);
-		}
-        
-        ProductEntity disactivated = productRepository.save(product);
-        ProductDto returnValue = modelMapper.map(disactivated, ProductDto.class);
+        TransactionDto returnValue = new TransactionDto();
+		ModelMapper modelMapper = new ModelMapper();
 		
+//		find the invoice id by invoice number
+		InvoiceEntity invoice = invoiceRepository.findByInvoiceNumber(invoiceNumber);
+		if (invoice == null) throw new UserServiceException ("no data record");
+		
+		String invoiceId = invoice.getInvoiceId();
+//		find the invoice in qren container
+		PaymentNotifQrenContainer paymentNotif = paymentNotifQrenContainerRepository.findByInvoice(invoiceId);
+		if (paymentNotif == null) throw new UserServiceException ("no qren invoice created");
+		
+		System.out.println(invoiceId);
+		if (invoice.getStatus().equals("success") && invoice.getIsVerified() == false) {
+			System.out.println(invoice.getStatus());
+//			transaction configuration
+			TransactionEntity transaction = new TransactionEntity();
+			transaction.setInvoice(invoice);
+			
+			System.out.println(transaction.getInvoice());
+			
+			String generateTrxId = utils.generateId(5);
+			String random = utils.generateId(1);
+			
+			final String DATE_FORMAT = "yyyymmdd";
+			SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT);
+			dateFormat.setTimeZone(TimeZone.getTimeZone("GMT+7"));
+			 
+			Calendar currentDate = Calendar.getInstance();
+			String trxdate = dateFormat.format(currentDate.getTime());
+			
+			transaction.setTransactionId("QR-"+trxdate+"-"+random+"-"+generateTrxId);
+			
+			invoice.setTransactionId(transaction.getTransactionId());
+			
+			System.out.println(transaction.getTransactionId());
+			
+			final String FORMAT = "yyyy-MM-dd HH:mm:ss";
+			SimpleDateFormat formatter = new SimpleDateFormat(FORMAT);
+			formatter.setTimeZone(TimeZone.getTimeZone("GMT+7"));
+			 
+			Calendar currentTime = Calendar.getInstance();
+			
+			String modifiedDate = formatter.format(currentTime.getTime());
+			
+			invoice.setModifiedDate(modifiedDate);
+			
+			invoiceRepository.save(invoice);
+			
+			System.out.println(paymentNotif.getQrentransid());
+//			save transaction data
+			transaction.setQrenTransactionId(paymentNotif.getQrentransid());
+			transaction.setMerchantId(paymentNotif.getMerchantApiKey());
+			transaction.setAmount(paymentNotif.getAmount());
+			
+			transaction.setStatus(paymentNotif.getMessage());
+			transaction.setTransactionDate(paymentNotif.getTimeStamp());
+			transaction.setDescription("menunggu konfirmasi");
+			transaction.setIsConfirmed(false);
+			
+			System.out.println(transaction);
+			
+			TransactionEntity transactionEntity = transactionRepository.save(transaction);
+			returnValue = modelMapper.map(transactionEntity, TransactionDto.class);
+		}
+
 		return returnValue;
 	}
 
-	@Override
-	public List<ProductDto> getSomeProducts(int page, int limit) {
-		// TODO Auto-generated method stub
-		List<ProductDto> returnValue = new ArrayList<ProductDto>();
-		
-//		paging
-		if (page>0) page = page-1;
-		Pageable pageableRequest = PageRequest.of(page, limit);
-		
-		Page<ProductEntity> productsPage = productRepository.findByIsActiveTrueOrderByIdDesc(pageableRequest);
-		List<ProductEntity> products = productsPage.getContent();
-		
-		if (products == null) throw new UserServiceException(
-				"no records");
-		
-		for (ProductEntity productEntity : products) {
-			ProductDto productDto = new ProductDto();
-			BeanUtils.copyProperties(productEntity, productDto);
-			returnValue.add(productDto);
-		}
-		
-		return returnValue;
-	}	
-	
 	public FileEntity storeFile(MultipartFile file, String productId) {
 		// TODO Auto-generated method stub
 		String fileName = StringUtils.cleanPath(file.getOriginalFilename());
@@ -994,4 +1203,5 @@ public class UserServiceImpl implements UserService {
 	public FileEntity getFile(String fileName) {
         return fileRepository.findByFileName(fileName);
     }
+	
 }

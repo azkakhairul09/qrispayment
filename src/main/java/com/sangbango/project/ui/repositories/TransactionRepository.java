@@ -12,4 +12,5 @@ public interface TransactionRepository extends JpaRepository<TransactionEntity, 
 	TransactionEntity findByTransactionId(String transactionId);
 	List<TransactionEntity> findAllByTransactionId(String transactionId);
 	List<TransactionEntity> findAll();
+	List<TransactionEntity> findAllByOrderByIdDesc();
 }

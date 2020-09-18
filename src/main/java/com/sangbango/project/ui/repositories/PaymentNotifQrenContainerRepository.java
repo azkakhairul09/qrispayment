@@ -7,5 +7,5 @@ import com.sangbango.project.ui.entitymodel.PaymentNotifQrenContainer;
 
 @Repository
 public interface PaymentNotifQrenContainerRepository extends JpaRepository<PaymentNotifQrenContainer, Long> {
-
+	PaymentNotifQrenContainer findByInvoice(String invoiceId);
 }

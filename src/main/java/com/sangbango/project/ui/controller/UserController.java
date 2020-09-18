@@ -507,7 +507,6 @@ public class UserController {
 		PaymentNotifQrenContainerResponse returnValue = new PaymentNotifQrenContainerResponse();
 		
 		ModelMapper modelMapper = new ModelMapper();
-		System.out.println("disini");
 		PaymentNotifQrenContainerDto notifDto = modelMapper.map(notif, PaymentNotifQrenContainerDto.class);
 		
 		PaymentNotifQrenContainerDto createNotif = userService.createNotif(notifDto);
@@ -588,7 +587,44 @@ public class UserController {
 		result.setTimestamp(new Timestamp(date.getTime()).toString());
 		
 		return result;
+	}
+	
+	@GetMapping("/transaction/findTransaction")
+	public PaymentNotifQrenContainerResponse findTransaction(@RequestParam("invoiceNumber") String invoiceNumber) {
+		PaymentNotifQrenContainerResponse returnValue = new PaymentNotifQrenContainerResponse();
 		
+		PaymentNotifQrenContainerDto notifDto = userService.findTransaction(invoiceNumber);
+		if (invoiceNumber == null) throw new UserServiceException("invoice number may not be null");
+		
+		if (notifDto != null) {
+			java.lang.reflect.Type listType = new TypeToken<PaymentNotifQrenContainerResponse>() {
+			}.getType();
+			returnValue = new ModelMapper().map(notifDto, listType);
+		}
+		
+		Date date = new Date();
+		returnValue.setTimeStamp(new Timestamp(date.getTime()).toString());
+		return returnValue;
+	}
+	
+	@PostMapping("/transaction/addInvoice")
+	public ContentTransaction addInvoice(@RequestParam("invoiceNumber") String invoiceNumber) {
+		TransactionResponse returnValue = new TransactionResponse();
+		ContentTransaction result = new ContentTransaction();
+		
+		if (invoiceNumber == null) throw new UserServiceException("invoice number may not be null");
+		
+		ModelMapper modelMapper = new ModelMapper();
+		
+		TransactionDto addInvoice = userService.addInvoice(invoiceNumber);
+		returnValue = modelMapper.map(addInvoice, TransactionResponse.class);
+		
+		result.setContent(returnValue);
+		result.setErrorCode("0");
+		result.setErrorDesc("success");
+		Date date = new Date();
+		result.setTimestamp(new Timestamp(date.getTime()).toString());
+		return result;
 	}
 	
 	@PutMapping(

@@ -37,4 +37,6 @@ public interface UserService extends UserDetailsService {
 	List<TransactionDto> getInvoicesByCreatedBy(String createdBy, int page, int limit);
 	TransactionDto putConfirmation(String transactionId);
 	ProductDto disactivated(String productId);
+	PaymentNotifQrenContainerDto findTransaction(String invoiceNumber);
+	TransactionDto addInvoice(String invoiceNumber);
 }
