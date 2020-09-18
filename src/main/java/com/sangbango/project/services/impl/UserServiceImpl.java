@@ -914,7 +914,7 @@ public class UserServiceImpl implements UserService {
 		ModelMapper modelMapper = new ModelMapper();
 		
 //		query search transactions
-		List<TransactionEntity> transactions = transactionRepository.findAll();
+		List<TransactionEntity> transactions = transactionRepository.findAllByOrderByIdDesc();
 		if (transactions == null) throw new UserServiceException(
 				"no records");
 		
