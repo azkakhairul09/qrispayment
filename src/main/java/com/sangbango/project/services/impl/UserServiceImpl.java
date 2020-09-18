@@ -918,7 +918,7 @@ public class UserServiceImpl implements UserService {
 		if (transactions == null) throw new UserServiceException(
 				"no records");
 		
-//		Looping transactions data
+//		Looping transactions data	
 		for (TransactionEntity transactionEntity : transactions) {
 			returnValue.add(modelMapper.map(transactionEntity, TransactionDto.class) );
 		}
