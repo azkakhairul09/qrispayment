@@ -20,7 +20,7 @@ public class AppExceptionHandler {
 	public ResponseEntity<Object> handleUserServiceException(UserServiceException ex, HttpServletRequest request) {
 		
 		String queryString = request.getRequestURI();
-		String url = "/sangbango-microservices/payment/v1";
+		String url = "";
 		
 		System.out.println(queryString);
 		if (queryString.equals(url+"/registration")) 
