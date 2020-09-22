@@ -1031,8 +1031,9 @@ public class UserServiceImpl implements UserService {
 				String result = IOUtils.toString(in, "UTF-8");
 				
 				JSONObject qrenResponse = new JSONObject(result);
+				System.out.println(qrenResponse);
 				
-				if (qrenResponse.getString("status").equals("PAYMENT_SUCCEED")) {
+				if (qrenResponse.getString("resultCode").equals("0")) {
 					
 //					setting response
 					returnValue.setStatus("0");
@@ -1067,6 +1068,11 @@ public class UserServiceImpl implements UserService {
 					invoice.setModifiedDate(modifiedDate);
 					
 					invoiceRepository.save(invoice);
+				} else if (qrenResponse.getString("resultCode").equals("qr9929")) {
+//					setting response
+					returnValue.setStatus("1");
+					returnValue.setMessage(qrenResponse.getString("message"));
+					returnValue = modelMapper.map(returnValue, PaymentNotifQrenContainerDto.class);
 				}
 				
 //				close connection
@@ -1078,7 +1084,7 @@ public class UserServiceImpl implements UserService {
 			}
 		} else {
 			returnValue.setStatus("1");
-			returnValue.setMessage("There are no invoice created by this merchant");
+			returnValue.setMessage("invoice sudah tersedia pada tabel");
 		}
 		
 		return returnValue;
