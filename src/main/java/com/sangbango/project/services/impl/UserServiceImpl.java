@@ -190,7 +190,11 @@ public class UserServiceImpl implements UserService {
 		userData.setUserId("USR-"+id);
 		userData.setIsActive(true);
 		userData.setLoginTime("0");
-		userData.setMerchantId("195281683222");
+		if (roleEntity.getRoleName().equals("Administrator")) {
+			userData.setMerchantId("195238151618");
+		} else {
+			userData.setMerchantId("");
+		}
 		
 //		setting user image
 		userData.setUserImage("https://hosting.photobucket.com/images/i/sangbango/pngtree_businessman_user_avatar_free_vector_png_image_1538405.jpg?width=1920&height=1080&fit=bounds");
